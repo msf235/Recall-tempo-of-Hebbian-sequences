@@ -327,7 +327,6 @@ def one_forward_plots(base_params, run_num=None):
         hue = make_coeff_combs(df)
         hue_order = putil.get_coeff_order(df, hue, 'linear')
         format_df(df, inplace=True)
-        fname = f"{fname_base}_peak_time"
         fig, ax = plt.subplots(figsize=figsize)
         g = sns.lineplot(data=df, ax=ax, x=r'$\mu$', y=r'$t_{\mu}$',
                          hue=hue, hue_order=hue_order, style='type',
@@ -339,7 +338,6 @@ def one_forward_plots(base_params, run_num=None):
     if len(df) > 0:
         hue = make_coeff_combs(df)
         format_df(df, inplace=True)
-        fname = f"{fname_base}_gfun"
         fig, ax = plt.subplots(figsize=figsize)
         # ax.set_ylim(ylims)
         g = sns.lineplot(data=df, ax=ax, x=r'$t$', y=r'$g(t)$',
@@ -357,7 +355,6 @@ def one_forward_plots(base_params, run_num=None):
     df = make_df(mu_data, coeff_list, params, mu, run_num)
     if len(df) > 0:
         format_df(df, inplace=True)
-        fname = f"{fname_base}_peak_diff_0"
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         ax.set_xticks([-.4, 0, .4])
@@ -368,7 +365,6 @@ def one_forward_plots(base_params, run_num=None):
 
     # Fig 3e
     if len(df) > 0:
-        fname = f"{fname_base}_peak_diff_1"
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         g = sns.lineplot(data=df, ax=ax, x=r'$a_1$', y=r'$d_{\mu}$',
@@ -422,7 +418,6 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    fname = (plotdir/f'{fname_base}_overlaps_0').with_suffix(ext)
     fig.savefig('fig_3A', bbox_inches='tight', pad_inches=fig_pad,
                 transparent=True)
 
@@ -435,7 +430,6 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    fname = (plotdir/f'{fname_base}_overlaps_1').with_suffix(ext)
     fig.savefig('fig_3B', bbox_inches='tight', pad_inches=fig_pad,
                 transparent=True)
 
@@ -448,7 +442,6 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    fname = (plotdir/f'{fname_base}_overlaps_2').with_suffix(ext)
     fig.savefig('fig_3C', bbox_inches='tight', pad_inches=fig_pad,
                 transparent=True)
 
@@ -466,13 +459,12 @@ def ofob_plots(base_params, run_num=None):
         hue = make_coeff_combs(df)
         hue_order = putil.get_coeff_order(df, hue, 'linear')
         format_df(df, inplace=True)
-        fname_base = "peak_time_ofob"
         fig, ax = plt.subplots(figsize=figsize)
         g = sns.lineplot(data=df, ax=ax, x=r'$\mu$', y=r'$t_{\mu}$',
                          hue=hue, hue_order=hue_order, style='type',
                          style_order=style_order,
                          alpha=0.7,)
-        putil.savefig(ax, fname_base, ncols=2) 
+        putil.savefig(ax, 'fig_4b', ncols=2) 
 
     coeff_list = make_coeffs_ofob_heatmap()
     df = make_df(mu_data, coeff_list, params, 70, run_num)
@@ -482,7 +474,6 @@ def ofob_plots(base_params, run_num=None):
         ylims = [0, 3.2]
         df = df[df['-1']==-.2]
         format_df(df, inplace=True)
-        fname_base = "peak_diff_ofob_0"
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         ax.set_xticks([-.4, 0, .4])
@@ -492,8 +483,6 @@ def ofob_plots(base_params, run_num=None):
                          alpha=0.7,)
         putil.savefig(ax, 'fig_4c_left', ncols=1) 
 
-        fname_base = "peak_diff_ofob_1"
-        # Fig 4c
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         g = sns.lineplot(data=df, ax=ax, x=r'$a_1$', y=r'$d_{\mu}$',
@@ -506,7 +495,6 @@ def ofob_plots(base_params, run_num=None):
         ylims = [0, 8]
         # ylims = None
         format_df(df, inplace=True)
-        fname_base = "peak_diff_ofob_3"
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         ax.set_xticks([-.4, 0, .4])
@@ -516,7 +504,6 @@ def ofob_plots(base_params, run_num=None):
                          alpha=0.7,)
         putil.savefig(ax, 'fig_4d_left', ncols=1) 
 
-        fname_base = "peak_diff_ofob_4"
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         g = sns.lineplot(data=df, ax=ax, x=r'$a_1$', y=r'$d_{\mu}$',
@@ -585,7 +572,6 @@ def two_forward_plots(base_params, run_num=None):
         ylims = [0, 3.2]
         # df = df[df['2']==.2]
         format_df(df, inplace=True)
-        fname_base = "peak_diff_two_forward_0"
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         ax.set_xticks([-.4, 0, .4])
@@ -595,7 +581,6 @@ def two_forward_plots(base_params, run_num=None):
                          alpha=0.7,)
         putil.savefig(ax, 'fig_5c_left', ncols=1) 
 
-        fname_base = "peak_diff_two_forward_1"
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         g = sns.lineplot(data=df, ax=ax, x=r'$a_1$', y=r'$d_{\mu}$',
@@ -660,9 +645,7 @@ def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
     def make_plot(N, coeffs, fname):
         inp_params['N'] = N
         mf_soln = util.get_meanfield_from_coeffs(coeffs, params)[:, 1::5]
-        util.reset_inputs_and_weights()
         overlaps = util.get_overlaps(coeffs, params)[:, 1::5]
-        util.reset_inputs_and_weights()
 
         K = overlaps.shape[1]
         cycle_len = 6
@@ -703,9 +686,7 @@ def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
                          sim_params['rspan'])
         mf_soln = util.simulate_meanfield(q0, Gf, tt, A,
                                           sim_params['h_sig'])[:, 1::5]
-        util.reset_inputs_and_weights()
         overlaps = util.get_overlaps(A, params)[:,1::5]
-        util.reset_inputs_and_weights()
 
         K = overlaps.shape[1]
         cycle_len = 6
@@ -724,7 +705,7 @@ def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
         figlegend = plt.figure(figsize=figsize1)
         figlegend.legend([lines1[0], lines2[0]], ["Network", "Mean Field"],
                          loc='center')
-        fnameleg = (plotdir/'legend'/f'{fname_base}_2_legend').with_suffix(ext)
+        fnameleg = (plotdir/'legend'/f'{fname}_2_legend').with_suffix(ext)
         figlegend.savefig(fnameleg, bbox_inches='tight', pad_inches=fig_pad)
 
     make_plot(5000, A, 'fig_2c')

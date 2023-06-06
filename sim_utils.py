@@ -347,7 +347,6 @@ def get_data_network(coeffs, params, save_weights=True):
     sim_params = params['sim_params']
     tt = np.linspace(0, sim_params['T'], sim_params['t_steps']+1)
     dt = tt[1]-tt[0]
-    # reset_inputs_and_weights()
     qs = get_overlaps(coeffs, params)[:, 1:]
     peaks, peakmags = np.array(get_peaks(qs, tt)[:2])
     cvds = {str(key): val for key, val in coeffs.items()}
