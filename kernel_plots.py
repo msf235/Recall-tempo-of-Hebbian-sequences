@@ -44,8 +44,10 @@ def make_tau_mag_combs(df):
 
 
 def make_ps_kernel_kde():
-    tau1 = [.2, .4, .8, 1.2, 1.6]
-    tau2 = [1, 1.1, 1.2, 1.3, 1.4, 1.7, 2]
+    # tau1 = [.2, .4, .8, 1.2, 1.6]
+    tau1 = [.2]
+    # tau2 = [1, 1.1, 1.2, 1.3, 1.4, 1.7, 2]
+    tau2 = [1]
 
     prd = itertools.product(tau1, tau2)
     prdf = []
@@ -190,7 +192,6 @@ def mu_data(params):
         d['T_xi'] = T_xi
     df = pd.DataFrame(ds)
     dfc = df.drop(columns=[a for a in df.columns if a.lstrip('-').isdigit()])
-
     return ds
 
 
@@ -264,20 +265,23 @@ def format_df(df: pd.DataFrame, inplace=False) -> pd.DataFrame | None:
                     r'$\mu$', 'peak time': r'$t_{\mu}$', 'T_xi': r'$T_{\xi}$',}
     return df.rename(columns=replace_dict, inplace=inplace)
 
+# Fig 6b, 6c
 def Txi_plots(params, run_num=None):
     params = copy.deepcopy(params)
     params_dsided_list = list_over_tau2([params], [.8, 1.2])
+    # params_dsided_list = list_over_tau2([params], [.8])
     params_dsided_list = list_over_mag1(params_dsided_list, [-2, .5])
+    # params_dsided_list = list_over_mag1(params_dsided_list, [-2])
     params_onesided = copy.deepcopy(params)
     params_onesided['w_params'].update({'mag1': 0})
     temp = params_dsided_list + [params_onesided]
     params_list = list_over_T_xi(temp, [.5, 1, 2, 3])
+    # params_list = list_over_T_xi(temp, [.5])
     df = make_df(params_list, 10, run_num)
     if len(df) > 0:
         hue = make_tau_mag_combs(df)
         hue_order = putil.get_coeff_order(df, hue, 'linear')
         format_df(df, inplace=True)
-        fname_base = "kernel_diff_taus"
         fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=r'$T_{\xi}$', y=r'$d_{\mu}$',
                          hue=hue, hue_order=hue_order, style='type',
@@ -285,7 +289,7 @@ def Txi_plots(params, run_num=None):
                         )
         ax.set_ylim([0, 5.5])
         ax.set_yticks(np.arange(0, 6, 1))
-        putil.savefig(g, fname_base) 
+        putil.savefig(g, 'fig_6b') 
 
     params = copy.deepcopy(params)
     params_dsided_list = list_over_mag2([params], [2, 4])
@@ -294,7 +298,6 @@ def Txi_plots(params, run_num=None):
     if len(df) > 0:
         format_df(df, inplace=True)
         df[r'$m_2$'] = df[r'$m_2$'].astype('category')
-        fname_base = "kernel_diff_mags"
         fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=r'$T_{\xi}$', y=r'$d_{\mu}$',
                          hue=r'$m_2$', hue_order=None, style='type',
@@ -302,8 +305,9 @@ def Txi_plots(params, run_num=None):
                         )
         ax.set_ylim([0, 3.6])
         ax.set_yticks([0, 1, 2, 3])
-        putil.savefig(g, fname_base) 
+        putil.savefig(g, 'fig_6c') 
 
+# Fig 6d
 def params_combos_plots(params, run_num):
     params = copy.deepcopy(params)
     ps = make_ps_kernel_kde()
@@ -315,10 +319,10 @@ def params_combos_plots(params, run_num):
         d['w_params']['tau2'] = p['tau2']
         params_list.append(d)
     df = make_df(params_list, 7, run_num)
+    # dfc = df.drop(columns = [str(k) for k in range(-6,9)])
     if len(df)> 0:
         format_df(df, inplace=True)
-        fname_base = "kernel_diff_tau2_tau1"
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         ax.set_yticks([0, 1, 2, 3])
         g = sns.lineplot(data=df, ax=ax, x=r'$\tau_2$', y=r'$d_{\mu}$',
@@ -326,10 +330,9 @@ def params_combos_plots(params, run_num):
                          hue_order=None, style='type',
                          style_order=['network', 'linear', 'approx'], alpha=0.7,
                         )
-        putil.savefig(g, fname_base) 
+        putil.savefig(g, 'fig_6d_left') 
 
-        fname_base = "kernel_diff_tau1_tau2"
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         ax.set_yticks([0, 1, 2, 3])
         g = sns.lineplot(data=df, ax=ax, x=r'$\tau_1$', y=r'$d_{\mu}$',
@@ -337,7 +340,7 @@ def params_combos_plots(params, run_num):
                          hue_order=None, style='type',
                          style_order=['network', 'linear', 'approx'], alpha=0.7,
                         )
-        putil.savefig(g, fname_base) 
+        putil.savefig(g, 'fig_6d_center') 
 
     params = copy.deepcopy(params)
     ps = make_ps_kernel_kde2()
@@ -349,17 +352,13 @@ def params_combos_plots(params, run_num):
         params_list.append(d)
     df = make_df(params_list, 10, run_num)
     dfn = df.copy()
-    # if len(df)> 0 and len(df[df['type']!='linear'])>0:
     if len(df)> 0:
-        # dfn = df.drop(columns=[str(k) for k in range(-1,10,1)])
         dfn = dfn.drop(columns=[r'T_xi', 'h_sig', 'tau1'])
         dfn2 = dfn[dfn['tau2']==1.0]
         dfn2[dfn2['mag2']==10]
-        # df = df[df['type']!='linear']
         format_df(df, inplace=True)
         df['$m_2$'] = df['$m_2$'].astype('category')
-        fname_base = "kernel_diff_tau2_m2"
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         ax.set_yticks([0, 1, 2, 3])
         g = sns.lineplot(data=df, ax=ax, x=r'$m_2$', y=r'$d_{\mu}$',
@@ -368,7 +367,7 @@ def params_combos_plots(params, run_num):
                          style_order=['network', 'linear', 'approx'],
                          alpha=0.7,
                         )
-        putil.savefig(g, fname_base) 
+        putil.savefig(g, 'fig_6d_right') 
 
 def format_file_str(fstr):
     """Format file string for use in plots. Replace '-' with 'm' and '.' with
@@ -377,82 +376,106 @@ def format_file_str(fstr):
     fstr = fstr.replace('.', 'p')
     return fstr
 
+# Fig 7
 def fast_and_slow_plots(base_params, run_num):
     params = copy.deepcopy(base_params)
     sim_params = params['sim_params']
+    w_params = params['w_params']
 
     if run_num is None or run_num == 0:
         tau1 = 0.25
         mag1 = -2
         mag2 = 2
-        ps0['w_params'].update(dict(tau1=tau1, mag1=mag1, mag2=mag2))
+        w_params.update(dict(tau1=tau1, mag1=mag1, mag2=mag2))
         fname_root = f'_changing_Txi_tau1_{tau1}_mag1_{mag1}_mag2_{mag2}'
         fname_root = format_file_str(fname_root)
         
-        ds, qs = get_data_changing_Txi(ps0)
+        ds, qs = get_data_changing_Txi(params)
         tt = np.linspace(0, sim_params['T'], sim_params['t_steps'])
 
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize2)
         putil.make_overlap_plot(qs[:300], tt[:300], peakyd=None, peakyu=None, ax=ax)
+        peaks, maxs, peak_tidx = util.get_peaks(qs[:300], tt[:300])
+        peaks = np.array(peaks)
+        maxs = np.array(maxs)
+        temp = np.where(peaks>=tt[-1])[0]
+        if len(temp) > 0:
+            fin_peak = temp[0] - 1
+        else:
+            fin_peak = -1
+        peaks = peaks[:fin_peak]
+        maxs = maxs[:fin_peak]
+        peak_tidx = peak_tidx[:fin_peak]
+        if len(peaks) < 10:
+            maxs_avg = np.mean(maxs)
+        else:
+            maxs_avg = np.mean(maxs[5:10])
+        idxs = maxs > maxs_avg*.2
+        peaks = peaks[idxs]
+        maxs = maxs[idxs]
+        peak_tidx = np.array(peak_tidx)[idxs]
+        idxs = np.diff(peaks) > 0
+        peaks = np.concatenate([[peaks[0]], peaks[1:][idxs]])
         ax.set_ylabel(r'$q_{\mu}(t)$')
         ax.set_xlabel(r'$t$')
-        putil.savefig(ax, 'qs'+fname_root)
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([peaks[19], peaks[29]], ymin=ymin, ymax=ymax, colors='k',
+                  linestyles='dashed')
+        putil.savefig(ax, 'Fig_7d')
 
         df = pd.DataFrame(ds)
         df = df[df['mu']<=70]
         format_df(df, inplace=True)
         mus = r'$\mu$'
         peak_diff_str = r'$d_{\mu}$'
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=mus, y=r'$t_{\mu}$',
                          hue=None, hue_order=None, style=None,
                          style_order=None)
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([20, 30], ymin=ymin, ymax=ymax, colors='k',
+                  linestyles='dashed')
+        putil.savefig(ax, 'Fig_7b')
         putil.savefig(ax, 'times'+fname_root)
-        fig, ax = plt.subplots(figsize=figsize)
+
+        fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=mus, y=r'$d_{\mu}$',
                          hue=None, hue_order=None, style=None,
                          style_order=None)
+        ymin, ymax = ax.get_ylim()
 
         dfavg = df.copy()
         dfavg['diff_avgs'] = np.nan
         idx = (3<=dfavg[mus])&(dfavg[mus]<18)
         dfavg['diff_avgs'][idx] = dfavg[idx][peak_diff_str].mean()
         sns.lineplot(ax=ax, data=dfavg, x=mus, y='diff_avgs',
-                     # hue='T_xi_type',
-                     # style='type',
                      linestyle='dotted', color='k'
                     )
+        ymin, ymax = ax.get_ylim()
         dfavg['diff_avgs'] = np.nan
         idx = (20<=dfavg[mus])&(dfavg[mus]<30)
         dfavg['diff_avgs'][idx] = dfavg[idx][peak_diff_str].mean()
         sns.lineplot(ax=ax, data=dfavg, x=mus, y='diff_avgs',
-                     # hue='T_xi_type',
-                     # style='type',
                      linestyle='dotted', color='k'
                     )
-        # dfavg['diff_avgs'][30<=dfavg['mu']] = dfavg[30<=dfavg['mu']]['peak diff'].mean()
         dfavg['diff_avgs'] = np.nan
         idx = 50<=dfavg[mus]
         dfavg['diff_avgs'][idx] = dfavg[idx][peak_diff_str].mean()
         sns.lineplot(ax=ax, data=dfavg, x=mus, y='diff_avgs',
-                     # hue='T_xi_type',
-                     # style='type',
                      linestyle='dotted', color='k'
                     )
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([20, 30], ymin=ymin, ymax=ymax, colors='k',
+                  linestyles='dashed')
 
         figname='diffs'+fname_root
         figpath = (figdir/figname).with_suffix(ext)
-        putil.savefig(ax, figname)
-        fig.savefig(figpath, bbox_inches='tight', pad_inches=.01, transparent=True)
+        putil.savefig(ax, 'Fig_7c')
 
         if not legend:
             g.legend_ = None
         else:
             ax.legend(bbox_to_anchor=(1.1, 1.05), loc=2, borderaxespad=0.)
-        # ax.set_xlabel(r'$\mu$')
-        # ax.set_ylabel(r'peak diff')
-        # figpath = (figdir/(figname + '_slopes')).with_suffix(ext)
-        # fig.savefig(figpath, bbox_inches='tight', pad_inches=.01, transparent=True)
 
         figlegend = plt.figure(figsize=(1,1))
         figlegend.legend(*ax.get_legend_handles_labels(), loc='center',
@@ -460,34 +483,3 @@ def fast_and_slow_plots(base_params, run_num):
         fnameleg = (figdir/'legend'/figname).with_suffix(ext)
         figlegend.savefig(fnameleg, bbox_inches='tight', transparent=True,
                           pad_inches=.01)
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p5_mag1_2_mag2_5')
-    # ps0['w_params'].update(dict(tau1=.3, mag1=-2, mag2=5))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p3_mag1_2_mag2_5')
-    # ps0['w_params'].update(dict(tau1=1, mag1=0, mag2=5))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_mag1_0_mag2_5')
-
-    # ps0['w_params'].update(dict(tau1=.5, mag1=-5, mag2=5))
-    # get_data_changing_Txi(ps0, 'slopes_changing_txi_tau1_0p5_mag1_5_mag2_5')
-    # ps0['w_params'].update(dict(tau1=.3, mag1=-5, mag2=5))
-    # get_data_changing_Txi(ps0, 'slopes_changing_txi_tau1_0p3_mag1_5_mag2_5')
-    # ps0['w_params'].update(dict(tau1=1, mag1=0, mag2=5))
-    # get_data_changing_Txi(ps0, 'slopes_changing_txi_mag1_0_mag2_5')
-    # breakpoint()
-
-    # ps0['w_params'].update(dict(tau1=.5, mag1=-2, mag2=8))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p5_mag1_2_mag2_8')
-    # ps0['w_params'].update(dict(tau1=.3, mag1=-2, mag2=8))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p3_mag1_2_mag2_8')
-    # ps0['w_params'].update(dict(tau1=1, mag1=0, mag2=8))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_mag1_0_mag2_8')
-
-    # ps0['w_params'].update(dict(tau1=.5, mag1=-8, mag2=8))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p5_mag1_8_mag2_8')
-    # ps0['w_params'].update(dict(tau1=.3, mag1=-8, mag2=8))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p3_mag1_8_mag2_8')
-
-    # ps0['w_params'].update(dict(tau1=.5, mag1=-5, mag2=8))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p5_mag1_5_mag2_8')
-    # ps0['w_params'].update(dict(tau1=.3, mag1=-5, mag2=8))
-    # get_data_changing_Txi(ps0, 'slopes_changing_Txi_tau1_0p3_mag1_5_mag2_8')
-

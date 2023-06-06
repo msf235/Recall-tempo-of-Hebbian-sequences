@@ -21,54 +21,33 @@ def mp_round(coeff_dict):
     ret_dict = {key: round(val, 10) for key, val in coeff_dict.items()}
     return ret_dict
 
-Xil = []
-def process_patterns(S, P, N, input_type, seed, reset=False):
-    if len(Xil) == 0 or reset:
-        Xil.clear()
-        rng = np.random.default_rng(seed*7)
-        if input_type == 'binary_01':
-            mean = .5
-            Xi = (rng.random(size=(S, P, N)) > .5).astype(float)
-        elif input_type == 'gaussian':
-            mean = 0
-            Xi = rng.normal(size=(S, P, N))
-        else:
-            raise AttributeError("input_type not recognized.")
-        Xil.append(Xi)
+# Xil = []
+# def process_patterns(S, P, N, input_type, seed, reset=False):
+    # if len(Xil) == 0 or reset:
+        # Xil.clear()
+        # rng = np.random.default_rng(seed*7)
+        # if input_type == 'binary_01':
+            # mean = .5
+            # Xi = (rng.random(size=(S, P, N)) > .5).astype(float)
+        # elif input_type == 'gaussian':
+            # mean = 0
+            # Xi = rng.normal(size=(S, P, N))
+        # else:
+            # raise AttributeError("input_type not recognized.")
+        # Xil.append(Xi)
 
-Ws = {}
-def preload_weights(cmin, cmax, reset=False):
-    """Make and save weights to Ws."""
-    tic = time.time()
-    if len(Ws) == 0 or reset:
-        print("Making weights from scratch.", flush=True)
-        for k in range(cmin, cmax, 1):
-            Ws[k] = make_weights(k, 1, Xil[0])
-            print(f"Finished weight {k} of {cmax}", flush=True)
+def make_patterns(S, P, N, input_type, seed):
+    rng = np.random.default_rng(seed*7)
+    if input_type == 'binary_01':
+        mean = .5
+        Xi = (rng.random(size=(S, P, N)) > .5).astype(float)
+        return Xi
+    elif input_type == 'gaussian':
+        mean = 0
+        Xi = rng.normal(size=(S, P, N))
+        return Xi
     else:
-        print("Adding to previously made weights.", flush=True)
-        for k in range(cmin, cmax, 1):
-            if k not in Ws:
-                Ws[k] = make_weights(k, 1, Xil[0])
-            print(f"Finished weight {k} of {cmax}", flush=True)
-    toc = time.time()
-    elaps = round(toc-tic, 4)
-    print(f"Made weights in {elaps} s", flush=True)
-
-Wsum = []
-def preload_weights_sum(cvd):
-    cmax = max(cvd.keys())
-    if len(Wsum) == 0:
-        W = 0
-        for k, c in cvd.items():
-            W += c*make_weights(k, 1, Xil[0])
-            print(f"Finished weight {k} of {cmax}", flush=True)
-        Wsum.append(W)
-
-def reset_inputs_and_weights():
-    Xil.clear()
-    Ws.clear()
-    Wsum.clear()
+        raise AttributeError("input_type not recognized.")
 
 def phi(x, rspan=1, theta=0, sig=.1, rcenter=1):
     return rspan * .5 * (rcenter + special.erf((x - theta)/(sig * 2**.5)))
@@ -84,7 +63,7 @@ def get_peaks(x, tt):
     peaks = (np.asarray(tt)[max_time_idx]).tolist()
     return peaks, maxs, max_time_idx
 
-def make_weights(offset, cs, Xic):
+def make_weights_old(offset, cs, Xic):
     """Make network weights from coefficient vector cs.
     The full coefficient matrix is toeplitz so that a coefficient vector
     is sufficient to specify it."""
@@ -106,7 +85,40 @@ def make_weights(offset, cs, Xic):
     W = cov.sum(0) / N
     return W
 
-def make_weights_full(A, Xi, mean=0):
+def make_weight_term(offset, Xic):
+    """Make term in weight matrix corresponding to offset.
+    The full coefficient matrix is toeplitz so that a coefficient vector
+    is sufficient to specify it."""
+    S, P, N = Xic.shape
+    Xi_shifted = np.roll(Xic, -offset, axis=1)
+    if offset > 0:
+        Xi_trunc = Xic[:, :P-offset]
+        Xi_shifted_trunc = Xi_shifted[:, :P-offset]
+    elif offset < 0:
+        Xi_trunc = Xic[:, -offset:]
+        Xi_shifted_trunc = Xi_shifted[:, -offset:]
+    else:
+        Xi_trunc = Xic
+        Xi_shifted_trunc = Xi_shifted
+    cov = Xi_shifted_trunc.transpose(0, 2, 1) @ Xi_trunc
+    Woffset = cov.sum(0) / N
+    return Woffset
+
+def make_weights(Xi, cvd):
+    """Make weights."""
+    tic = time.time()
+    print("Making weights.", flush=True)
+    cmax = max(cvd.keys())
+    W = 0
+    for k, c in cvd.items():
+        W += c*make_weight_term(k, Xi)
+        print(f"Finished weight {k} of {cmax}", flush=True)
+    toc = time.time()
+    elaps = toc-tic
+    print(f"Made weights in {elaps} s", flush=True)
+    return W
+
+def make_weights_full(Xi, A, mean=0):
     """Make network weights from coefficient matrix A."""
     S, P, N = Xi.shape
     W = np.zeros((N, N))
@@ -116,6 +128,13 @@ def make_weights_full(A, Xi, mean=0):
                 print(k1, k2, flush=True)
                 W += A[k1, k2] * np.outer(Xi[0,k1]-mean, Xi[0,k2]-mean)
     W = W / N
+    return W
+
+def get_weights(Xi, coeffs):
+    if isinstance(coeffs, dict):
+        W = make_weights(Xi, coeffs)
+    else:
+        W = make_weights_full(Xi, coeffs)
     return W
 
 def make_weights_mf(coeffs, P, periodic=False):
@@ -232,60 +251,45 @@ def simulate_rnn(r0, phi, tt, W, seed, h_sig=0):
         r_soln[k] = r_now
     return r_soln
 
+
 @memory_overlaps.cache
 def simulate_rnn_subset(coeffs, params, k, save_weights=True):
     """Simulate full network equations and return a subset of the
     solutions. Subset size is set by k."""
     sim_params = params['sim_params']
     inp_params = params['inp_params']
-    process_patterns(inp_params['S'], inp_params['P'], inp_params['N'],
-                   inp_params['input_type'], inp_params['seed'])
-    if save_weights:
-        preload_weights(min(coeffs.keys()), max(coeffs.keys())+1)
-        W = 0
-        for key in coeffs:
-            W += coeffs[key] * Ws[key]
-    else:
-        preload_weights_sum(coeffs, reset=True)
-        W = Wsum[0]
+    # process_patterns(inp_params['S'], inp_params['P'], inp_params['N'],
+                   # inp_params['input_type'], inp_params['seed'])
+    Xi = make_patterns(inp_params['S'], inp_params['P'], inp_params['N'],
+                       inp_params['input_type'], inp_params['seed'])
+    W = get_weights(Xi, coeffs)
     tt = np.linspace(0, sim_params['T'], sim_params['t_steps']+1)
     dt = tt[1]-tt[0]
-    r0 = Xil[0][0, 0]
+    r0 = Xi[0, 0]
     phil = lambda x: phi(x, sim_params['rspan'], sim_params['theta'],
                          sim_params['sig'], sim_params['rcenter'])
     r_soln = simulate_rnn(r0, phil, tt, W, sim_params['seed'])
     return r_soln[:, :k]
 
-def get_weights(coeffs, save_weights=True):
-    if isinstance(coeffs, dict):
-        if save_weights:
-            preload_weights(min(coeffs.keys()), max(coeffs.keys())+1)
-            W = 0
-            for key in coeffs:
-                W += coeffs[key] * Ws[key]
-        else:
-            preload_weights_sum(coeffs)
-            W = Wsum[0]
-    else:
-        W = make_weights_full(coeffs, Xil[0])
-    return W
 
 @memory_overlaps.cache 
-def get_overlaps(coeffs, params, save_weights=True):
+def get_overlaps(coeffs, params):
     # Todo: add mean as an argument
-    # Todo: replace params with inp_params and sim_params
     inp_params = params['inp_params']
     sim_params = params['sim_params']
-    process_patterns(inp_params['S'], inp_params['P'], inp_params['N'],
-                   inp_params['input_type'], inp_params['seed'])
+    # process_patterns(inp_params['S'], inp_params['P'], inp_params['N'],
+                   # inp_params['input_type'], inp_params['seed'])
+    Xi = make_patterns(inp_params['S'], inp_params['P'], inp_params['N'],
+                       inp_params['input_type'], inp_params['seed'])
     tt = np.linspace(0, sim_params['T'], sim_params['t_steps']+1)
     dt = tt[1]-tt[0]
-    r0 = Xil[0][0, 0]
+    r0 = Xi[0, 0]
     phil = lambda x: phi(x, sim_params['rspan'], sim_params['theta'],
                          sim_params['sig'], sim_params['rcenter'])
-    W = get_weights(coeffs, save_weights)
+    W = get_weights(Xi, coeffs)
     rs = simulate_rnn(r0, phil, tt, W, sim_params['seed'], sim_params['h_sig'])
-    qs = (rs@Xil[0][0].T)/inp_params['N']
+    # qs = (rs@Xil[0][0].T)/inp_params['N']
+    qs = (rs@Xi[0].T)/inp_params['N']
     return qs
 
 def get_overlaps2_periodic(tt, coeffs, P):
@@ -343,7 +347,8 @@ def get_data_network(coeffs, params, save_weights=True):
     sim_params = params['sim_params']
     tt = np.linspace(0, sim_params['T'], sim_params['t_steps']+1)
     dt = tt[1]-tt[0]
-    qs = get_overlaps(coeffs, params, save_weights)[:, 1:]
+    # reset_inputs_and_weights()
+    qs = get_overlaps(coeffs, params)[:, 1:]
     peaks, peakmags = np.array(get_peaks(qs, tt)[:2])
     cvds = {str(key): val for key, val in coeffs.items()}
     temp = np.where(peaks>=tt[-1])[0]
@@ -355,10 +360,12 @@ def get_data_network(coeffs, params, save_weights=True):
     diffs = np.nan * np.ones(peaks.shape)
     diffs[:-1] = np.diff(peaks)
     ds = []
+    # breakpoint()
     cvds = {str(key): val for key, val in coeffs.items()}
     ds += [{'mu': k+1, 'peak time': peaks[k], 'peak diff': diffs[k],
             'mag': peakmags[k], 'type': 'network',
             'h_sig': sim_params['h_sig'], **cvds} for k in range(len(peaks))]
+    df = pd.DataFrame(ds)
     return ds
 
 def get_data_mf_approx(coeffs, params):
@@ -384,6 +391,7 @@ def get_data_mf_approx(coeffs, params):
     else:
         fin_peak = -1
     peaks = peaks[:fin_peak]
+    # breakpoint()
     ds = []
     cvds = {str(key): val for key, val in coeffs.items()}
     diffs = np.nan * np.ones(peaks.shape)

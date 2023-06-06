@@ -47,34 +47,33 @@ base_params = {'inp_params': dict(S=1, P=100, seed=33,
                              h_sig=0, seed=13)
          }
 
-if run_num == 1:
-    cp.compare_tmu('compare_tmu')
 
 ## Fig 1b and 1c
-# cp.model_overview_plots(base_params, "sims_one_forward", run_num=run_num)
+cp.model_overview_plots(base_params, run_num=run_num)
 ## Fig 2
-# params = copy.deepcopy(base_params)
-# params['inp_params']['P'] = 100
-# params['sim_params']['T'] = 60
-# cp.verify_mf_plots(base_params, "verify_mean_field", run_num)
+cp.verify_mf_plots(base_params, run_num)
 ## Fig 3
-# cp.one_forward_plots(base_params, "one_forward", run_num)
+cp.one_forward_plots(base_params, run_num)
 ## Fig 4
-# cp.ofob_plots(base_params, "ofob", run_num)
+cp.ofob_plots(base_params, run_num)
 ## Fig 5
-# cp.two_forward_plots(base_params, "two_forward", run_num)
-## Figure S1
-# cp.G_plot(base_params)
+cp.two_forward_plots(base_params, run_num)
+if run_num == 0:
+    ## Fig S2
+    cp.compare_tmu()
+    ## Figure S1
+    cp.G_plot(base_params)
 
 
-## Exponential kernel plots
+# Exponential kernel plots
 
 params_dsided = {
     'w_params': dict(type='double_exp', mag1=-2, mag2=2, tau1=.25, tau2=1,
                      a=-20, b=20, offset=0),
     'inp_params': dict(S=1, P=100, seed=33,
-                       N=35000,
-                       # N=40000,
+                       # N = 4000,
+                       # N=35000,
+                       N=40000,
                        T_xi=.5,
                        input_type='gaussian'),
     'sim_params': dict(
@@ -84,37 +83,34 @@ params_dsided = {
                        rcenter=0, theta=0, sig=0.1)
       }
 
+## Fig 6b, 6c
 kp.Txi_plots(params_dsided, run_num)
 
-## Parameter combination plots
+# Parameter combination plots
 figsize = (1.5, 1)
 ylims = (0, 3)
 params_combos = {'w_params': dict(type='double_exp',
                          mag1=-1, mag2=3,
-                         # mag1=-2, mag2=5,
                          tau1=.25, tau2=1,
                          a=-20, b=20, offset=0),
-       'inp_params': dict(S=1, P=60, seed=33, N=40000, T_xi=3,
-       # 'inp_params': dict(S=1, P=60, seed=33, N=30000, T_xi=3,
+       'inp_params': dict(S=1, P=60, seed=33,
+                          N=40000,
+                          T_xi=3,
                           input_type='gaussian'),
        'sim_params': dict(
            vspan=1,
            sim_type='network',
-                          # T=30, t_steps=600,
                           T=60,
                           t_steps=800,
-                          # t_steps=1200,
-                          # t_steps=1600,
                           seed=13, h_sig=0,
                           rspan=2, rcenter=0,
                           theta=0, sig=0.1)
       }
+## Fig 6d
 kp.params_combos_plots(params_combos, run_num)
 
 ps0 = copy.deepcopy(params_dsided)
-ps0['inp_params']['N'] = 35000
-# ps0['inp_params']['N'] = 30000
-# ps0['inp_params']['N'] = 40000
+ps0['inp_params']['N'] = 40000
 ps0['inp_params']['P'] = 100
 ps0['w_params'] = dict(type='double_exp',
                        tau1=.5,
@@ -124,6 +120,7 @@ ps0['w_params'] = dict(type='double_exp',
                        a=-20, b=20,
                        offset=0)
 
+## Fig S1
 kp.fast_and_slow_plots(ps0, run_num)
 
 
