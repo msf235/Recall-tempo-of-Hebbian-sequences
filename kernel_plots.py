@@ -437,7 +437,6 @@ def fast_and_slow_plots(base_params, run_num):
         ax.vlines([20, 30], ymin=ymin, ymax=ymax, colors='k',
                   linestyles='dashed')
         putil.savefig(ax, 'Fig_7b')
-        putil.savefig(ax, 'times'+fname_root)
 
         fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=mus, y=r'$d_{\mu}$',
