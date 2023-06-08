@@ -303,18 +303,6 @@ def model_overview_plots(params, figsize=figsize2,
     ax.set_ylim([None, ymax])
     putil.savefig(ax, 'fig_1d')
 
-# Fig S1
-def G_plot(params):
-    params = copy.deepcopy(params)
-    sim_params = params['sim_params']
-    xx = np.linspace(0, 1, 200)
-    yy = util.G(xx, sim_params['theta'], sim_params['sig'], sim_params['rspan'])
-    fig, ax = plt.subplots(figsize=(1.4, 1))
-    ax.plot(xx, yy)
-    ax.set_yticks(np.arange(0, 9, 2))
-    ax.set_xlabel(r'$x$')
-    ax.set_ylabel(r'$G(x)$')
-    putil.savefig(ax, 'fig_S1')
 
 # Fig 3
 def one_forward_plots(base_params, run_num=None):
@@ -418,8 +406,7 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    fig.savefig('fig_3A', bbox_inches='tight', pad_inches=fig_pad,
-                transparent=True)
+    putil.savefig(ax, 'fig_3A')
 
     # Fig 3B
     coeffs = {0: -0.4, 1: 0.6}
@@ -430,8 +417,7 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    fig.savefig('fig_3B', bbox_inches='tight', pad_inches=fig_pad,
-                transparent=True)
+    putil.savefig(ax, 'fig_3B')
 
     # Fig 3C
     coeffs = {0: 0, 1: 0.1}
@@ -442,8 +428,7 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    fig.savefig('fig_3C', bbox_inches='tight', pad_inches=fig_pad,
-                transparent=True)
+    putil.savefig(ax, 'fig_3C')
 
 
 # Fig 4
@@ -525,7 +510,7 @@ def ofob_plots(base_params, run_num=None):
     tk = int(30/dt)
     tt = tt[:tk]
 
-    # Fig 3d-popout 1
+    # Fig 4A
     coeffs = {-1: 0.2, 0: 0.2, 1: 0.8}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
     ymax = np.max(overlaps)*1.3
@@ -536,7 +521,7 @@ def ofob_plots(base_params, run_num=None):
     ax.set_ylim([None, ymax])
     putil.savefig(ax, 'fig_4A')
 
-    # Fig 3d-popout 2
+    # Fig 4B
     coeffs = {-1: -0.2, 0: -0.2, 1: 0.8}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
     ymax = np.max(overlaps)*1.3
@@ -607,7 +592,6 @@ def two_forward_plots(base_params, run_num=None):
     tt = tt[:tk]
 
     # Fig 5A
-    # coeffs = {0: 0.4, 1: 0.6, 2: 0.4}
     coeffs = {0: 0.4, 1: 0.6, 2: -0.1}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
     ymax = np.max(overlaps)*1.3
@@ -710,6 +694,19 @@ def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
 
     make_plot(5000, A, 'fig_2c')
     make_plot(20000, A, 'fig_2d')
+
+# Fig S1
+def G_plot(params):
+    params = copy.deepcopy(params)
+    sim_params = params['sim_params']
+    xx = np.linspace(0, 1, 200)
+    yy = util.G(xx, sim_params['theta'], sim_params['sig'], sim_params['rspan'])
+    fig, ax = plt.subplots(figsize=(1.4, 1))
+    ax.plot(xx, yy)
+    ax.set_yticks(np.arange(0, 9, 2))
+    ax.set_xlabel(r'$x$')
+    ax.set_ylabel(r'$G(x)$')
+    putil.savefig(ax, 'fig_S1')
 
 # Fig S2
 def compare_tmu():

@@ -71,8 +71,6 @@ params_dsided = {
     'w_params': dict(type='double_exp', mag1=-2, mag2=2, tau1=.25, tau2=1,
                      a=-20, b=20, offset=0),
     'inp_params': dict(S=1, P=100, seed=33,
-                       # N = 4000,
-                       # N=35000,
                        N=40000,
                        T_xi=.5,
                        input_type='gaussian'),

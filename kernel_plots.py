@@ -44,10 +44,10 @@ def make_tau_mag_combs(df):
 
 
 def make_ps_kernel_kde():
-    # tau1 = [.2, .4, .8, 1.2, 1.6]
-    tau1 = [.2]
-    # tau2 = [1, 1.1, 1.2, 1.3, 1.4, 1.7, 2]
-    tau2 = [1]
+    tau1 = [.2, .4, .8, 1.2, 1.6]
+    # tau1 = [.2]
+    tau2 = [1, 1.1, 1.2, 1.3, 1.4, 1.7, 2]
+    # tau2 = [1]
 
     prd = itertools.product(tau1, tau2)
     prdf = []
@@ -318,7 +318,7 @@ def params_combos_plots(params, run_num):
         d['w_params']['tau1'] = p['tau1']
         d['w_params']['tau2'] = p['tau2']
         params_list.append(d)
-    df = make_df(params_list, 7, run_num)
+    df = make_df(params_list, 10, run_num)
     # dfc = df.drop(columns = [str(k) for k in range(-6,9)])
     if len(df)> 0:
         format_df(df, inplace=True)
@@ -341,6 +341,7 @@ def params_combos_plots(params, run_num):
                          style_order=['network', 'linear', 'approx'], alpha=0.7,
                         )
         putil.savefig(g, 'fig_6d_center') 
+
 
     params = copy.deepcopy(params)
     ps = make_ps_kernel_kde2()
