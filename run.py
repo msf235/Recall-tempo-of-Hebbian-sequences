@@ -48,27 +48,27 @@ base_params = {'inp_params': dict(S=1, P=100, seed=33,
          }
 
 
-# ## Fig 1b and 1c
-# cp.model_overview_plots(base_params, run_num=run_num)
-# ## Fig 2
-# cp.verify_mf_plots(base_params, run_num)
-# ## Fig 3
-# cp.one_forward_plots(base_params, run_num)
-# ## Fig 4
-# cp.ofob_plots(base_params, run_num)
-# ## Fig 5
-# cp.two_forward_plots(base_params, run_num)
-# if run_num == 0:
-    # ## Fig S2
-    # cp.compare_tmu()
-    # ## Figure S1
-    # cp.G_plot(base_params)
+## Fig 1b and 1c
+cp.model_overview_plots(base_params, run_num=run_num)
+## Fig 2
+cp.verify_mf_plots(base_params, run_num)
+## Fig 3
+cp.one_forward_plots(base_params, run_num)
+## Fig 4
+cp.ofob_plots(base_params, run_num)
+## Fig 5
+cp.two_forward_plots(base_params, run_num)
+if run_num == 0:
+    ## Fig S2
+    cp.compare_tmu()
+    ## Figure S1
+    cp.G_plot(base_params)
 
 
 # Exponential kernel plots
 
 params_dsided = {
-    'w_params': dict(type='double_exp', mag1=-2, mag2=2, tau1=.25, tau2=1,
+    'w_params': dict(type='double_exp', mag1=2, mag2=2, tau1=.25, tau2=1,
                      a=-20, b=20, offset=0),
     'inp_params': dict(S=1, P=100, seed=33,
                        N=40000,
@@ -88,7 +88,7 @@ kp.Txi_plots(params_dsided, run_num)
 figsize = (1.5, 1)
 ylims = (0, 3)
 params_combos = {'w_params': dict(type='double_exp',
-                         mag1=-1, mag2=3,
+                         mag1=1, mag2=3,
                          tau1=.25, tau2=1,
                          a=-20, b=20, offset=0),
        'inp_params': dict(S=1, P=60, seed=33,
@@ -112,14 +112,14 @@ ps0['inp_params']['N'] = 40000
 ps0['inp_params']['P'] = 100
 ps0['w_params'] = dict(type='double_exp',
                        tau1=.5,
-                       mag1=-2,
+                       mag1=2,
                        tau2=1,
                        mag2=2,
                        a=-20, b=20,
                        offset=0)
 
-## Fig S1
-# kp.fast_and_slow_plots(ps0, run_num)
+# Fig S1
+kp.fast_and_slow_plots(ps0, run_num)
 
 
 print("Simulations complete.", flush=True)
