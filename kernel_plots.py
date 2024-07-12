@@ -123,12 +123,12 @@ def get_w(w_params):
     if w_params['type'] == 'linear':
         def w(t):
             b = (w_params['a'] <= t) * (t <= w_params['b'])
-            return b * w_params['slope'] * (t-w_params['offset']) + w_params['mag1']
+            return b * w_params['slope'] * (t-w_params['offset']) - w_params['mag1']
     elif w_params['type'] == 'double_exp':
         def w(t):
             b1 = (w_params['a'] <= t/w_params['tau1']) * (t < w_params['offset'])
             if b1 != 0:
-                t1 = b1 * w_params['mag1']*np.exp(t/w_params['tau1'])
+                t1 = -b1 * w_params['mag1']*np.exp(t/w_params['tau1'])
             else:
                 t1 = 0
             b2 = (w_params['offset'] < t) * (t/w_params['tau2'] <= w_params['b'])
@@ -168,9 +168,9 @@ def mu_data(params):
     # util.reset_inputs_and_weights()
 
     gbar2inv = T_xi*w_params['mag2']*w_params['tau2'] \
-                + T_xi*w_params['mag1']*w_params['tau1']
+                - T_xi*w_params['mag1']*w_params['tau1']
     gbar2 = 1/gbar2inv
-    temp = -w_params['mag1']*w_params['tau1']**2 \
+    temp = w_params['mag1']*w_params['tau1']**2 \
                 + w_params['mag2']*w_params['tau2']**2
     alpha1 = temp / gbar2inv
     temp = (1-np.exp(-T_xi/w_params['tau1']))*w_params['tau1']**2 \
@@ -268,7 +268,7 @@ def Txi_plots(params, run_num=None):
     params = copy.deepcopy(params)
     params_dsided_list = list_over_tau2([params], [.8, 1.2])
     # params_dsided_list = list_over_tau2([params], [.8])
-    params_dsided_list = list_over_mag1(params_dsided_list, [-2, .5])
+    params_dsided_list = list_over_mag1(params_dsided_list, [-.5, 2])
     # params_dsided_list = list_over_mag1(params_dsided_list, [-2])
     params_onesided = copy.deepcopy(params)
     params_onesided['w_params'].update({'mag1': 0})
@@ -383,7 +383,7 @@ def fast_and_slow_plots(base_params, run_num):
 
     if run_num is None or run_num == 0:
         tau1 = 0.25
-        mag1 = -2
+        mag1 = 2
         mag2 = 2
         w_params.update(dict(tau1=tau1, mag1=mag1, mag2=mag2))
         fname_root = f'_changing_Txi_tau1_{tau1}_mag1_{mag1}_mag2_{mag2}'
