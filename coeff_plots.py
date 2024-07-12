@@ -229,7 +229,7 @@ def format_df(df: pd.DataFrame, inplace=False) -> pd.DataFrame | None:
     replace_dict = {'0': r'$a_0$', '1': r'$a_1$', '2': r'$a_2$', '-1':
                     r'$a_{-1}$', 'peak diff': r'$d_{\mu}$', 'mu': r'$\mu$',
                     'peak time': r'$t_{\mu}$', 't': r'$t$', 'g(t)': r'$g(t)$',
-                    'csum': r'$a_0+a_1$', 'mag': '$p_{\mu}$'}
+                    'csum': r'$a_0+a_1$', 'mag': r'$p_{\mu}$'}
     return df.rename(columns=replace_dict, inplace=inplace)
 
 def make_df(data_fun, coeff_list, params, mu_lim=None, run_num=None):

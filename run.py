@@ -48,21 +48,21 @@ base_params = {'inp_params': dict(S=1, P=100, seed=33,
          }
 
 
-## Fig 1b and 1c
-cp.model_overview_plots(base_params, run_num=run_num)
-## Fig 2
-cp.verify_mf_plots(base_params, run_num)
-## Fig 3
-cp.one_forward_plots(base_params, run_num)
-## Fig 4
-cp.ofob_plots(base_params, run_num)
-## Fig 5
-cp.two_forward_plots(base_params, run_num)
-if run_num == 0:
-    ## Fig S2
-    cp.compare_tmu()
-    ## Figure S1
-    cp.G_plot(base_params)
+# ## Fig 1b and 1c
+# cp.model_overview_plots(base_params, run_num=run_num)
+# ## Fig 2
+# cp.verify_mf_plots(base_params, run_num)
+# ## Fig 3
+# cp.one_forward_plots(base_params, run_num)
+# ## Fig 4
+# cp.ofob_plots(base_params, run_num)
+# ## Fig 5
+# cp.two_forward_plots(base_params, run_num)
+# if run_num == 0:
+    # ## Fig S2
+    # cp.compare_tmu()
+    # ## Figure S1
+    # cp.G_plot(base_params)
 
 
 # Exponential kernel plots
@@ -119,7 +119,7 @@ ps0['w_params'] = dict(type='double_exp',
                        offset=0)
 
 ## Fig S1
-kp.fast_and_slow_plots(ps0, run_num)
+# kp.fast_and_slow_plots(ps0, run_num)
 
 
 print("Simulations complete.", flush=True)
