@@ -59,10 +59,10 @@ cp.ofob_plots(base_params, run_num)
 ## Fig 5
 cp.two_forward_plots(base_params, run_num)
 if run_num == 0:
+    ## Fig S1
+    cp.G_plot(base_params)
     ## Fig S2
     cp.compare_tmu()
-    ## Figure S1
-    cp.G_plot(base_params)
 
 
 # Exponential kernel plots
@@ -118,7 +118,7 @@ ps0['w_params'] = dict(type='double_exp',
                        a=-20, b=20,
                        offset=0)
 
-# Fig S1
+# Fig 7
 kp.fast_and_slow_plots(ps0, run_num)
 
 
