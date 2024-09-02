@@ -263,7 +263,7 @@ def format_df(df: pd.DataFrame, inplace=False) -> pd.DataFrame | None:
                     r'$\mu$', 'peak time': r'$t_{\mu}$', 'T_xi': r'$T_{\xi}$',}
     return df.rename(columns=replace_dict, inplace=inplace)
 
-# Fig 6b, 6c
+# Fig 6B, 6C
 def Txi_plots(params, run_num=None):
     params = copy.deepcopy(params)
     params_dsided_list = list_over_tau2([params], [.8, 1.2])
@@ -287,7 +287,7 @@ def Txi_plots(params, run_num=None):
                         )
         ax.set_ylim([0, 5.5])
         ax.set_yticks(np.arange(0, 6, 1))
-        putil.savefig(g, 'fig_6b') 
+        putil.savefig(g, 'fig_6B') 
 
     params = copy.deepcopy(params)
     params_dsided_list = list_over_mag2([params], [2, 4])
@@ -303,9 +303,9 @@ def Txi_plots(params, run_num=None):
                         )
         ax.set_ylim([0, 3.6])
         ax.set_yticks([0, 1, 2, 3])
-        putil.savefig(g, 'fig_6c') 
+        putil.savefig(g, 'fig_6C') 
 
-# Fig 6d
+# Fig 6D
 def params_combos_plots(params, run_num):
     params = copy.deepcopy(params)
     ps = make_ps_kernel_kde()
@@ -328,7 +328,7 @@ def params_combos_plots(params, run_num):
                          hue_order=None, style='type',
                          style_order=['network', 'linear', 'approx'], alpha=0.7,
                         )
-        putil.savefig(g, 'fig_6d_left') 
+        putil.savefig(g, 'fig_6D_left') 
 
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
@@ -338,7 +338,7 @@ def params_combos_plots(params, run_num):
                          hue_order=None, style='type',
                          style_order=['network', 'linear', 'approx'], alpha=0.7,
                         )
-        putil.savefig(g, 'fig_6d_center') 
+        putil.savefig(g, 'fig_6D_center') 
 
 
     params = copy.deepcopy(params)
@@ -366,7 +366,7 @@ def params_combos_plots(params, run_num):
                          style_order=['network', 'linear', 'approx'],
                          alpha=0.7,
                         )
-        putil.savefig(g, 'fig_6d_right') 
+        putil.savefig(g, 'fig_6D_right') 
 
 def format_file_str(fstr):
     """Format file string for use in plots. Replace '-' with 'm' and '.' with
@@ -420,7 +420,7 @@ def fast_and_slow_plots(base_params, run_num):
         ymin, ymax = ax.get_ylim()
         ax.vlines([peaks[19], peaks[29]], ymin=ymin, ymax=ymax, colors='k',
                   linestyles='dashed')
-        putil.savefig(ax, 'Fig_7d')
+        putil.savefig(ax, 'Fig_7D')
 
         df = pd.DataFrame(ds)
         df = df[df['mu']<=70]
@@ -434,7 +434,7 @@ def fast_and_slow_plots(base_params, run_num):
         ymin, ymax = ax.get_ylim()
         ax.vlines([20, 30], ymin=ymin, ymax=ymax, colors='k',
                   linestyles='dashed')
-        putil.savefig(ax, 'Fig_7b')
+        putil.savefig(ax, 'Fig_7B')
 
         fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=mus, y=r'$d_{\mu}$',
@@ -468,7 +468,7 @@ def fast_and_slow_plots(base_params, run_num):
 
         figname='diffs'+fname_root
         figpath = (figdir/figname).with_suffix(ext)
-        putil.savefig(ax, 'Fig_7c')
+        putil.savefig(ax, 'Fig_7C')
 
         if not legend:
             g.legend_ = None
