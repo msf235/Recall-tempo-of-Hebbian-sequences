@@ -2,12 +2,14 @@ import pickle as pkl
 import itertools
 import numpy as np
 from matplotlib import pyplot as plt
-import matplotlib
 import seaborn as sns
 from pathlib import Path
 import sim_utils as util
 
 basic_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+SAVEFIGSS = True # Global variable to enable/disable saving figures
+# SAVEFIGSS = False # Global variable to enable/disable saving figures
 
 fig_pad = .01
 ext = '.pdf'
@@ -83,6 +85,8 @@ def make_overlap_plot(overlaps, tt, peakyd=None, peakyu=None, ax=None,
     return fig
 
 def get_coeff_order(df, coeff_key, sim_type):
+    if len(df) == 0:
+        return None
     peaktimes = []
     coeff_vals = df[coeff_key].unique()
     for coeff_val in coeff_vals:
@@ -93,20 +97,25 @@ def get_coeff_order(df, coeff_key, sim_type):
     hue_order = coeff_vals[sortidx]
     return hue_order
 
-def savefig(ax, fname_base, separate_legend=True, ncols=1, fig_pad=fig_pad):
+def savefig(ax, fname_base, separate_legend=True, ncols=1, fig_pad=fig_pad,
+            transparent=True):
+    if not SAVEFIGSS:
+        print("Global variable SAVEFIGS is false. Not saving figure.")
+        return
     fig = ax.figure
     if separate_legend:
         ax.legend().remove()
-    else:
-        ax.legend(bbox_to_anchor=(1.05, 1.1))
+    elif separate_legend is False:
+        ax.legend(bbox_to_anchor=(1.05, 1.1), fontsize='xx-small')
     fname = (plotdir/f'{fname_base}').with_suffix(ext)
     fig.savefig(fname, bbox_inches='tight', pad_inches=fig_pad,
-                transparent=True)
-    figlegend = plt.figure()
-    figlegend.legend(*ax.get_legend_handles_labels(), loc='center',
-                     ncol=ncols)
-    fnameleg = (plotdir/'legend'/f'{fname_base}_legend').with_suffix(ext)
-    figlegend.savefig(fnameleg, bbox_inches='tight', pad_inches=fig_pad)
-    plt.close("all")
+                transparent=transparent)
+    if separate_legend:
+        figlegend = plt.figure()
+        figlegend.legend(*ax.get_legend_handles_labels(), loc='center',
+                         ncol=ncols)
+        fnameleg = (plotdir/'legend'/f'{fname_base}_legend').with_suffix(ext)
+        figlegend.savefig(fnameleg, bbox_inches='tight', pad_inches=fig_pad)
+        plt.close("all")
     
 

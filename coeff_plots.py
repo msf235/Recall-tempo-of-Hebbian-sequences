@@ -5,9 +5,12 @@ import pandas as pd
 import numpy as np
 import itertools
 from matplotlib import pyplot as plt
+import matplotlib
+# matplotlib.use('Agg')
 import seaborn as sns
 import copy
 import argparse
+import sys
 
 round_dig = 3
 machine_eps = 1e-14
@@ -36,6 +39,13 @@ def make_coeffs_one_forward():
     # ps2 = [{0: small_p[0], 1: small_p[1]}]
     # ps += ps2
     # ps2 += [{0: 0, 1: 1}]
+    return ps
+
+def make_coeffs_one_forward_const_g(csum=1.5):
+    a0s = np.array([-10, -4, -3, -2, -1])
+    a1s = csum - a0s
+    ps = [{0: a0s[k], 1: a1s[k]} for k in range(len(a0s))]
+
     return ps
 
 def make_coeffs_one_forward_heatmap(threshold=0):
@@ -122,6 +132,8 @@ def make_coeffs_two_forward_heatmap(threshold=0.1):
 
 
 def make_coeff_combs(df, normalize=False):
+    if len(df) == 0:
+        return None
     coeffs_keys = [str(col) for col in df.columns
                    if isinstance(col, int) or col.lstrip('-').isdigit()]
     cn = '('
@@ -175,10 +187,11 @@ def stability_noise_data(h_sigs, a0s, params, run_num):
         ds = []
         for k, (coeffs, pc) in enumerate(arg_list):
             print("Run", k+1, '/', len(arg_list))
-            ds += util.get_data_network(coeffs, pc)
+            ds += util.get_data_network(coeffs, pc)[0]
     return ds
 
-def mu_data(coeffs, params, h_sigs=None, save_weights=True):
+def mu_data(coeffs, params, h_sigs=None, save_weights=True,
+            mean_field=True): # Hacky add-on, TODO: fix
 
     sim_params = params['sim_params']
     P = params['inp_params']['P']
@@ -190,10 +203,14 @@ def mu_data(coeffs, params, h_sigs=None, save_weights=True):
     for h_sig in h_sigs:
         params_h = copy.deepcopy(params)
         params_h['sim_params']['h_sig'] = h_sigs[0]
-        ds += util.get_data_network(coeffs, params_h, save_weights=save_weights)
-    ds += util.get_data_mf_approx(coeffs, params_h)
-    alpha1, alpha2 = util.get_alphas(coeffs)
+        ds += util.get_data_network(coeffs, params_h,
+                                    save_weights=save_weights)[0]
+    ds += util.get_mf_linear_from_coeff(coeffs, params_h)[0]
+    if mean_field:
+        ds += util.get_data_mf(coeffs, params_h)[0]
+    df = pd.DataFrame(ds)
 
+    alpha1, alpha2 = util.get_alphas(coeffs)
     coeffs = {str(k): v for k, v in coeffs.items()}
     abar = np.sum(list(coeffs.values()))
     coeffsn = {k: v/abar for k, v in coeffs.items()}
@@ -202,26 +219,28 @@ def mu_data(coeffs, params, h_sigs=None, save_weights=True):
             'peak time': k/alpha1 - alpha2/(2*alpha1**2),
             # 'peak time': (k+1)/alpha1 - alpha2/alpha1**2,
             'peak diff': 1/alpha1,
-            'mag': np.nan, 'type': 'approx', **coeffs}
+            'mag': np.nan,
+            'type': 'approx',
+            **coeffs}
             for k in range(1, P+1)]
     return ds
 
-def time_data(coeffs, params, save_weights=True, return_qs=False):
+def time_data(coeffs, params, save_weights=True):
     sim_params = params['sim_params']
     tt = np.linspace(0, sim_params['T'], sim_params['t_steps']+1)
     ds = []
     qss = {}
     out = util.get_gfun_network_data(coeffs, params)
     ds += out[0]
-    qss['network'] = out[1]
-    ds += util.get_gfun_mf_data(coeffs, params)
-    qss['linear'] = out[1]
+    qss['network'] = util.get_data_network(coeffs, params, False)
+    ds += util.get_gfun_mf_data(coeffs, params)[0]
+    # qss['linear'] = util.get_linear_from_coeff(coeffs, params)
+    qss['linear'] = util.get_mf_linear_from_coeff(coeffs, params)[1]
     gbar = 1/sum(coeffs.values())
     coeffs = {str(key): val for key, val in coeffs.items()}
-    ds += [{'t': t, 'g(t)': gbar, 'Garg': None, 'type': 'approx', **coeffs} for t in tt]
-    if return_qs:
-        return ds, qss, tt
-    return ds
+    ds += [{'t': t, 'g(t)': gbar, 'Garg': None, 'type': 'approx', **coeffs} for
+           t in tt]
+    return ds, qss
 
 
 def format_df(df: pd.DataFrame, inplace=False) -> pd.DataFrame | None:
@@ -276,7 +295,7 @@ def model_overview_plots(params, figsize=figsize2,
     tt = np.linspace(0, T, t_steps+1)
     r_soln = util.simulate_rnn_subset(coeffs, params, 10)
 
-    # Fig 1C
+    # Fig 1c
     fig, ax = plt.subplots(figsize=figsize)
     K = r_soln.shape[1]
     cycle_len = 6
@@ -287,21 +306,21 @@ def model_overview_plots(params, figsize=figsize2,
     ax.set_ylim([-1.2, 1.2])
     ax.set_ylabel(r'$r_k(t)$')
     ax.set_xlabel(r'$t$')
-    putil.savefig(ax, 'fig_1C')
+    putil.savefig(ax, 'fig_1c')
 
     overlaps = util.get_overlaps(coeffs, params)[:, 1:]
     ymax = np.max(overlaps)*1.3
     peakyu = ymax * .95
     peakyd = ymax * .9
 
-    # Fig 1D
+    # Fig 1d
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_ylabel(r'$q_{\mu}(t)$')
     ax.set_xlabel(r'$t$')
 
     putil.make_overlap_plot(overlaps, tt, peakyd, peakyu, ax)
     ax.set_ylim([None, ymax])
-    putil.savefig(ax, 'fig_1D')
+    putil.savefig(ax, 'fig_1d')
 
 
 # Fig 3
@@ -309,7 +328,7 @@ def one_forward_plots(base_params, run_num=None):
     params = copy.deepcopy(base_params)
     coeff_list = make_coeffs_one_forward()
 
-    # Fig 3B
+    # Fig 3b
     df = make_df(mu_data, coeff_list, params, 70, run_num)
     if len(df) > 0:
         hue = make_coeff_combs(df)
@@ -319,10 +338,11 @@ def one_forward_plots(base_params, run_num=None):
         g = sns.lineplot(data=df, ax=ax, x=r'$\mu$', y=r'$t_{\mu}$',
                          hue=hue, hue_order=hue_order, style='type',
                          style_order=['network', 'linear'], alpha=0.7)
-        putil.savefig(ax, 'fig_3B', ncols=7) 
+        putil.savefig(ax, 'fig_3b', ncols=7) 
 
-    # Fig 3C
-    df = make_df(time_data, coeff_list, params, None, run_num)
+    # Fig 3c
+    data_fun = lambda coeff, params: time_data(coeff, params, False)[0]
+    df = make_df(data_fun, coeff_list, params, None, run_num)
     if len(df) > 0:
         hue = make_coeff_combs(df)
         format_df(df, inplace=True)
@@ -332,9 +352,10 @@ def one_forward_plots(base_params, run_num=None):
                          hue=hue, hue_order=hue_order, style='type',
                          style_order=['network', 'approx'], alpha=0.7)
         ax.axhline(20 / np.sqrt(2*np.pi), color='k', linestyle='dotted')
-        putil.savefig(ax, 'fig_3C', ncols=7) 
+        ax.set_ylim([0, None])
+        putil.savefig(ax, 'fig_3c', ncols=7) 
 
-    # Fig 3D
+    # Fig 3d
     ylims = [0, 3.2]
     params = copy.deepcopy(base_params)
     sim_params = params['sim_params']
@@ -349,17 +370,18 @@ def one_forward_plots(base_params, run_num=None):
         g = sns.lineplot(data=df, ax=ax, x=r'$a_0$', y=r'$d_{\mu}$',
                          hue=r'$a_1$', style='type',
                          style_order=['network', 'linear'], alpha=0.7)
-        putil.savefig(ax, 'fig_3D_left', ncols=1) 
+        putil.savefig(ax, 'fig_3d_left', ncols=1) 
 
+    # Fig 3d
     if len(df) > 0:
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
         g = sns.lineplot(data=df, ax=ax, x=r'$a_1$', y=r'$d_{\mu}$',
                          hue=r"$a_0$", hue_order=None, style='type',
                          style_order=['network', 'linear'], alpha=0.7)
-        putil.savefig(ax, 'fig_3D_right', ncols=1) 
+        putil.savefig(ax, 'fig_3d_right', ncols=1) 
 
-    # Fig 3E
+    # Fig 3e
     params = copy.deepcopy(base_params)
     params['sim_params']['T'] = 200
     params['sim_params']['t_steps'] = 3000
@@ -380,7 +402,7 @@ def one_forward_plots(base_params, run_num=None):
         g = sns.lineplot(data=df, ax=ax, x=r'$a_0+a_1$', y=ystr, hue='h_sig')
         ax.vlines(1/gcrits, 0, ymax, linestyles='--',
                   colors=[g.lines[0].get_color(), g.lines[1].get_color()])
-        putil.savefig(ax, 'fig_3E', ncols=1) 
+        putil.savefig(ax, 'fig_3e', ncols=1) 
 
 
     if run_num is not None and run_num != 0:
@@ -395,7 +417,7 @@ def one_forward_plots(base_params, run_num=None):
     tk = int(30/dt)
     tt = tt[:tk]
 
-    # Fig 3F
+    # Fig 3A
     coeff_list = make_coeffs_one_forward()
     coeffs = {0: 0.4, 1: 0.6}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
@@ -405,9 +427,9 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    putil.savefig(ax, 'fig_3F')
+    putil.savefig(ax, 'fig_3A')
 
-    # Fig 3G
+    # Fig 3B
     coeffs = {0: -0.4, 1: 0.6}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
     ymax = np.max(overlaps)*1.3
@@ -416,9 +438,9 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    putil.savefig(ax, 'fig_3G')
+    putil.savefig(ax, 'fig_3B')
 
-    # Fig 3H
+    # Fig 3C
     coeffs = {0: 0, 1: 0.1}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
     ymax = np.max(overlaps)*1.3
@@ -427,7 +449,7 @@ def one_forward_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    putil.savefig(ax, 'fig_3H')
+    putil.savefig(ax, 'fig_3C')
 
 
 # Fig 4
@@ -438,7 +460,7 @@ def ofob_plots(base_params, run_num=None):
     df = make_df(mu_data, coeff_list, params, 70, run_num)
     style_order=['network', 'linear', 'approx']
 
-    # Fig 4B
+    # Fig 4b
     if len(df) > 0:
         hue = make_coeff_combs(df)
         hue_order = putil.get_coeff_order(df, hue, 'linear')
@@ -448,12 +470,12 @@ def ofob_plots(base_params, run_num=None):
                          hue=hue, hue_order=hue_order, style='type',
                          style_order=style_order,
                          alpha=0.7,)
-        putil.savefig(ax, 'fig_4B', ncols=2) 
+        putil.savefig(ax, 'fig_4b', ncols=2) 
 
     coeff_list = make_coeffs_ofob_heatmap()
     df = make_df(mu_data, coeff_list, params, 70, run_num)
     dfp = df.copy()
-    # Fig 4C, 4D
+    # Fig 4c, 4d
     if len(df) > 0:
         ylims = [0, 3.2]
         df = df[df['-1']==-.2]
@@ -465,7 +487,7 @@ def ofob_plots(base_params, run_num=None):
                          hue=r'$a_1$', hue_order=None, style='type',
                          style_order=style_order,
                          alpha=0.7,)
-        putil.savefig(ax, 'fig_4C_left', ncols=1) 
+        putil.savefig(ax, 'fig_4c_left', ncols=1) 
 
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
@@ -473,7 +495,7 @@ def ofob_plots(base_params, run_num=None):
                          hue=r'$a_0$', hue_order=None, style='type',
                          style_order=style_order,
                          alpha=0.7,)
-        putil.savefig(ax, 'fig_4C_right', ncols=1) 
+        putil.savefig(ax, 'fig_4c_right', ncols=1) 
 
         df = dfp[dfp['-1']==.2]
         ylims = [0, 8]
@@ -486,7 +508,7 @@ def ofob_plots(base_params, run_num=None):
                          hue=r'$a_1$', hue_order=None, style='type',
                          style_order=style_order,
                          alpha=0.7,)
-        putil.savefig(ax, 'fig_4D_left', ncols=1) 
+        putil.savefig(ax, 'fig_4d_left', ncols=1) 
 
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylim(ylims)
@@ -494,7 +516,7 @@ def ofob_plots(base_params, run_num=None):
                          hue=r'$a_0$', hue_order=None, style='type',
                          style_order=style_order,
                          alpha=0.7,)
-        putil.savefig(ax, 'fig_4D_right', ncols=1) 
+        putil.savefig(ax, 'fig_4d_right', ncols=1) 
 
     ## Popout overlap plots
     if run_num is not None and run_num != 0:
@@ -509,7 +531,7 @@ def ofob_plots(base_params, run_num=None):
     tk = int(30/dt)
     tt = tt[:tk]
 
-    # Fig 4E
+    # Fig 4A
     coeffs = {-1: 0.2, 0: 0.2, 1: 0.8}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
     ymax = np.max(overlaps)*1.3
@@ -518,9 +540,9 @@ def ofob_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    putil.savefig(ax, 'fig_4E')
+    putil.savefig(ax, 'fig_4A')
 
-    # Fig 4F
+    # Fig 4B
     coeffs = {-1: -0.2, 0: -0.2, 1: 0.8}
     overlaps = util.get_overlaps(coeffs, params)[:tk, 1:]
     ymax = np.max(overlaps)*1.3
@@ -529,7 +551,7 @@ def ofob_plots(base_params, run_num=None):
     ax.set_xlabel(r'$t$')
     putil.make_overlap_plot(overlaps, tt, ymax*.9, ymax*.95, ax)
     ax.set_ylim([None, ymax])
-    putil.savefig(ax, 'fig_4F')
+    putil.savefig(ax, 'fig_4B')
 
     plt.close("all")
 
@@ -539,7 +561,7 @@ def two_forward_plots(base_params, run_num=None):
     coeff_list = make_coeffs_two_forward()
     df = make_df(mu_data, coeff_list, params, 70, run_num)
 
-    # Fig 5B
+    # Fig 5b
     if len(df) > 0:
         hue = make_coeff_combs(df)
         hue_order = putil.get_coeff_order(df, hue, 'linear')
@@ -548,9 +570,8 @@ def two_forward_plots(base_params, run_num=None):
         g = sns.lineplot(data=df, ax=ax, x=r'$\mu$', y=r'$t_{\mu}$',
                          hue=hue, hue_order=hue_order, style='type',
                          style_order=['network', 'linear', 'approx'], alpha=0.7,)
-        putil.savefig(ax, 'fig_5B', ncols=2) 
+        putil.savefig(ax, 'fig_5b', ncols=2) 
 
-    # Fig 5C
     coeff_list = make_coeffs_two_forward_heatmap()
     df = make_df(mu_data, coeff_list, params, 70, run_num)
     if len(df) > 0:
@@ -581,10 +602,7 @@ def two_forward_plots(base_params, run_num=None):
 
     params = copy.deepcopy(base_params)
     sim_params = params['sim_params']
-    # T = 30
-    # sim_params['T'] = T
     T = sim_params['T']
-    # params['inp_params']['P'] = 120
     t_steps = sim_params['t_steps']
     tt = np.linspace(0, T, t_steps+1)
     dt = tt[1]-tt[0]
@@ -616,7 +634,7 @@ def two_forward_plots(base_params, run_num=None):
     plt.close("all")
 
 # Fig 2
-def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
+def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap, fname_pre='fig_2'):
     if run_num is not None and run_num != 0:
         return -1
     params = copy.deepcopy(params)
@@ -635,7 +653,6 @@ def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
         cycle_len = 6
         colors = cmap[:K]
 
-        # Fig 2A
         fig, ax = plt.subplots(figsize=figsize2)
         ax.set_ylabel(r'$q_{\mu}(t)$')
         ax.set_xlabel(r'$t$')
@@ -652,8 +669,9 @@ def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
         fnameleg = (plotdir/'legend'/f'{fname}_legend').with_suffix(ext)
         figlegend.savefig(fnameleg, bbox_inches='tight', pad_inches=fig_pad)
 
-    make_plot(5000, coeffs, 'fig_2A')
-    make_plot(20000, coeffs, 'fig_2B')
+    make_plot(5000, coeffs, fname_pre + 'A')
+    make_plot(20000, coeffs, fname_pre + 'B')
+
     A = np.zeros((P,P))
     for k in range(10):
         A[k, k] = 0.1
@@ -692,8 +710,8 @@ def verify_mf_plots(params, run_num, cmap=putil.overlap_cmap):
         fnameleg = (plotdir/'legend'/f'{fname}_2_legend').with_suffix(ext)
         figlegend.savefig(fnameleg, bbox_inches='tight', pad_inches=fig_pad)
 
-    make_plot(5000, A, 'fig_2C')
-    make_plot(20000, A, 'fig_2D')
+    make_plot(5000, A, fname_pre + 'C')
+    make_plot(20000, A, fname_pre + 'D')
 
 # Fig S1
 def G_plot(params):
@@ -710,7 +728,6 @@ def G_plot(params):
 
 # Fig S2
 def compare_tmu():
-
     def make_plot(coeffs, tmax, mu_min, mu_max, fname):
         P = int(mu_max*1.5)
         mus = np.arange(mu_min, mu_max+1)
@@ -779,4 +796,78 @@ def compare_tmu():
     coeffs = {-2: 0, -1: .2, 0: .2, 1: .8, 2: 0}
     make_plot(coeffs, 200, mu_min=1, mu_max=50, fname='fig_S2b_d')
 
+## Supplementary Figures S3 and S4
+def limiting_cases(base_params, run_num=1, csum=1.5, fignames=None):
+    if fignames is None:
+        fignames = ['mu_plot', 'tmu_plot', 'pmu', 'inset', 'overlaps']
+    assert len(fignames) == 5
+    params = copy.deepcopy(base_params)
+    coeff_list = make_coeffs_one_forward_const_g(csum)
+    df = make_df(mu_data, coeff_list, params, 120, run_num)
+    hue = make_coeff_combs(df)
+    hue_order = putil.get_coeff_order(df, hue, 'linear')
+    huevals = df[hue].unique()
+    tmustr = r'$t_{\mu}$'
+    dmustr = r'$d_{\mu}$'
+    style = 'type'
+    stylevals = df[style].unique()
+    for hueval in huevals:
+        dfb = df[hue]==hueval
+        st_time = df[dfb&(df['type']=='network')]['peak time'].min()
+        df[dfb&(df['type']=='approx')&(df['peak time']<=st_time)] = np.nan
+    format_df(df, inplace=True)
+    if len(df) == 0:
+        return None
+    l_integ = []
+    baselinestr = r'$d_{\mu}$'
+    for huev in huevals:
+        for stylev in ['linear', 'network', 'mf']:
+            baseline = df[(df[hue]==huev)&(df[style]=='approx')][dmustr].iloc[0]
+            dfb = df[(df[hue]==huev)&(df[style]==stylev)]
+            integral = ((dfb[dmustr]-baseline)*dfb[dmustr]).sum()
+            l_integ.append({hue: huev, style: stylev,
+                            'integral': np.abs(integral),
+                            baselinestr: baseline})
+            l_integ.append({hue: huev, style: 'unity',
+                            'integral': baseline,
+                            baselinestr: baseline})
+    df_int = pd.DataFrame(l_integ)
+    integ_norm_str = r'$D$'
+    # integ_y = 'integral'
+    integ_y = integ_norm_str
+    df_int[integ_norm_str] = df_int['integral'] / df_int[baselinestr]
 
+    # Fig S3a/S3c
+    fig, ax = plt.subplots(figsize=figsize)
+    g = sns.lineplot(data=df, ax=ax, x=r'$\mu$', y=r'$d_{\mu}$',
+                     hue=hue, hue_order=hue_order, style='type',
+                     style_order=['network', 'mf', 'linear', 'approx'], alpha=0.7)
+    ax.set_ylim([-.04, None])
+    putil.savefig(ax, fignames[0], ncols=1)
+
+    # Fig S3b/S3d
+    fig, ax = plt.subplots(figsize=figsize)
+    g = sns.lineplot(data=df, ax=ax, x=r'$t_{\mu}$', y=r'$d_{\mu}$',
+                     hue=hue, hue_order=hue_order, style='type',
+                     style_order=['network', 'mf',  'linear', 'approx'], alpha=0.7)
+    ax.set_ylim([-.04, None])
+    putil.savefig(ax, fignames[1], ncols=1)
+
+    # Fig S4a/S4b
+    fig, ax = plt.subplots(figsize=figsize)
+    g = sns.lineplot(data=df, ax=ax, x=r'$\mu$', y=r'$p_{\mu}$',
+                     hue=hue, hue_order=hue_order, style='type',
+                     style_order=['network', 'mf', 'linear'], alpha=0.7)
+    ax.set_ylim([-.04, None])
+    putil.savefig(ax, fignames[2], ncols=1)
+
+    # Fig S3b/S3d inset
+    fig, ax = plt.subplots(figsize=(1.7*.35, 1*.35))
+    g = sns.lineplot(data=df_int, ax=ax, x=baselinestr, y=integ_y,
+                     style='type',
+                     style_order=['mf'],
+                     alpha=0.7)
+    ax.set_ylim([-.04, None])
+    putil.savefig(ax, fignames[3], ncols=1)
+
+            

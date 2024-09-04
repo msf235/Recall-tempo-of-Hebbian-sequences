@@ -14,21 +14,22 @@ import kernels_params as ps
 import sim_utils as util
 import plots_utils as putil
 
+sns.set_palette('colorblind')
+
 memory = mom.Memory('make_plots_cache')
 # memory.clear()
 memory_overlaps = mom.Memory('overlaps_cache')
 # memory_overlaps.clear()
 figdir=Path('plots')
 
-# legend=False
-legend=True
+legend=False
+# legend=True
 ext = '.pdf'
 
 round_dig = 3
 fig_pad = .01
 figsize = (1.7, 1)
 figsize2 = (1.5, 1)
-legend=False
 plotdir = Path(f'plots')
 plotdir.mkdir(exist_ok=True)
 
@@ -40,12 +41,9 @@ def make_tau_mag_combs(df):
                    + ')')
     return hue_var
 
-
 def make_ps_kernel_kde():
     tau1 = [.2, .4, .8, 1.2, 1.6]
-    # tau1 = [.2]
     tau2 = [1, 1.1, 1.2, 1.3, 1.4, 1.7, 2]
-    # tau2 = [1]
 
     prd = itertools.product(tau1, tau2)
     prdf = []
@@ -58,8 +56,6 @@ def make_ps_kernel_kde():
 def make_ps_kernel_kde2():
     tau2 = [1, 1.1, 1.2, 1.3, 1.4, 1.7, 2]
     mag2 = [2, 4, 6, 10]
-    # tau2 = [1]
-    # mag2 = [10]
 
     prd = itertools.product(tau2, mag2)
     prdf = []
@@ -120,11 +116,11 @@ def make_ps_kernel_heatmap_sensitivity2(df1=.025, df2=.025):
     return ps
 
 def get_w(w_params):
-    if w_params['type'] == 'linear':
+    if w_params['wtype'] == 'linear':
         def w(t):
             b = (w_params['a'] <= t) * (t <= w_params['b'])
             return b * w_params['slope'] * (t-w_params['offset']) - w_params['mag1']
-    elif w_params['type'] == 'double_exp':
+    elif w_params['wtype'] == 'double_exp':
         def w(t):
             b1 = (w_params['a'] <= t/w_params['tau1']) * (t < w_params['offset'])
             if b1 != 0:
@@ -137,9 +133,13 @@ def get_w(w_params):
             else:
                 t2 = 0
             return t1 + t2
+    # tt = np.linspace(-.2,.2,1000)
+    # ws = np.array([w(t) for t in tt])
+    # plt.figure()
+    # plt.plot(tt, ws)
+    # plt.savefig('plots/w_fun.pdf')
     return w
 
-# @memory.cache
 def prep_system(w_params, inp_params, roundoff=1e-4):
     T_xi = inp_params['T_xi']
     P = inp_params['P']
@@ -149,7 +149,66 @@ def prep_system(w_params, inp_params, roundoff=1e-4):
             (val != np.nan) & (abs(val) > roundoff)}
     return csvd
 
-def mu_data(params):
+def mu_data(params, get_net=True):
+    w_params = params['w_params']
+    inp_params = params['inp_params']
+    sim_params = params['sim_params']
+
+    tt = np.linspace(0, sim_params['T'], sim_params['t_steps']+1)
+    T_xi = inp_params['T_xi']
+    P = inp_params['P']
+
+    coeffs = prep_system(w_params, inp_params, roundoff=1e-4)
+    gbar = 1/sum(coeffs.values())
+    coeffs_norm = {key: val * gbar for key, val in coeffs.items()}
+    ds = []
+    ds += util.get_mf_linear_from_coeff(coeffs, params)[0]
+    out = util.get_data_mf(coeffs, params)
+    ds += out[0]
+    # qs = out[1]
+    # plt.figure()
+    # plt.plot(tt, qs)
+    # plt.savefig('plots/qs_plot.pdf')
+    
+    if get_net:
+        out = util.get_data_network(coeffs, params, save_weights=False)
+        ds += out[0]
+        qs = out[1]
+        # plt.figure()
+        # plt.plot(tt, qs)
+        # plt.savefig('plots/temp2.pdf')
+
+    if 'tau' in sim_params:
+        tau = sim_params['tau']
+    else:
+        tau = 1
+
+    temp1 = w_params['mag2']*w_params['tau2'] \
+                - w_params['mag1']*w_params['tau1']
+    gbar2inv = T_xi * temp1
+    gbar2 = 1/gbar2inv
+    temp2 = w_params['mag1']*w_params['tau1']**2 \
+                + w_params['mag2']*w_params['tau2']**2
+    alpha1 = temp2 / gbar2inv
+    temp = (1-np.exp(-T_xi/w_params['tau1']))*w_params['tau1']**2 \
+            + (1-np.exp(-T_xi/w_params['tau2']))*w_params['tau2']**2
+    alpha2 = temp / gbar2inv
+    coeffs = {str(c): val for c, val in coeffs.items()}
+    ds += [{'mu': k,
+            'peak time': tau*(k-1)/alpha1 - alpha2/(2*alpha1**2),
+            'peak diff': tau/alpha1,
+            'mag': np.nan, 'type': 'approx', **coeffs} for k in range(1, P+1)]
+
+    for d in ds:
+        d['tau1'] = w_params['tau1']
+        d['tau2'] = w_params['tau2']
+        d['mag1'] = w_params['mag1']
+        d['mag2'] = w_params['mag2']
+        d['T_xi'] = T_xi
+
+    return ds
+
+def qu_data(params, get_net=True):
     w_params = params['w_params']
     inp_params = params['inp_params']
     sim_params = params['sim_params']
@@ -161,36 +220,13 @@ def mu_data(params):
     coeffs = prep_system(w_params, inp_params)
     gbar = 1/sum(coeffs.values())
     coeffs_norm = {key: val * gbar for key, val in coeffs.items()}
-    ds = []
-    ds += util.get_data_mf_approx(coeffs, params)
-    
-    ds += util.get_data_network(coeffs, params, save_weights=False)
-    # util.reset_inputs_and_weights()
 
-    gbar2inv = T_xi*w_params['mag2']*w_params['tau2'] \
-                - T_xi*w_params['mag1']*w_params['tau1']
-    gbar2 = 1/gbar2inv
-    temp = w_params['mag1']*w_params['tau1']**2 \
-                + w_params['mag2']*w_params['tau2']**2
-    alpha1 = temp / gbar2inv
-    temp = (1-np.exp(-T_xi/w_params['tau1']))*w_params['tau1']**2 \
-            + (1-np.exp(-T_xi/w_params['tau2']))*w_params['tau2']**2
-    alpha2 = temp / gbar2inv
-    coeffs = {str(c): val for c, val in coeffs.items()}
-    ds += [{'mu': k,
-            'peak time': (k-1)/alpha1 - alpha2/(2*alpha1**2),
-            'peak diff': 1/alpha1,
-            'mag': np.nan, 'type': 'approx', **coeffs} for k in range(1, P+1)]
+    qs_lin = util.get_data_mf(coeffs, params)[1]
+    if get_net:
+        qs_net = util.get_data_network(coeffs, params, save_weights=False)[1]
+        return {'linear': qs_lin, 'network': qs_net}
 
-    for d in ds:
-        d['tau1'] = w_params['tau1']
-        d['tau2'] = w_params['tau2']
-        d['mag1'] = w_params['mag1']
-        d['mag2'] = w_params['mag2']
-        d['T_xi'] = T_xi
-    df = pd.DataFrame(ds)
-    dfc = df.drop(columns=[a for a in df.columns if a.lstrip('-').isdigit()])
-    return ds
+    return {'linear': qs_lin}
 
 
 def get_data_changing_Txi(params, T_xis_type='speed_up_middle'):
@@ -205,20 +241,10 @@ def get_data_changing_Txi(params, T_xis_type='speed_up_middle'):
 
     w = get_w(w_params)
     A = np.round(util.compute_A(w, T_xis), 4)
-    qs = util.get_overlaps(A, params)[:, 1:]
-    tt = np.linspace(0, sim_params['T'], sim_params['t_steps'])
-    peaks, peakmags, __ = util.get_peaks(qs, tt)
-    peaks = np.array(peaks)
-    diffs = np.nan * np.ones(peaks.shape)
-    diffs[:-1] = np.diff(peaks)
-    ds = []
-    for k in range(len(peaks)):
-        ds += [{'mu': k+1, 'peak time': peaks[k], 'peak diff': diffs[k],
-                'mag': peakmags[k], 'type': 'network', 'tau1': w_params['tau1'],
-                'tau2': w_params['tau2'], 'mag1': w_params['mag1'],
-                'mag2': w_params['mag2'], 'T_xi_type': T_xis_type}]
-    return ds, qs
-
+    ds, qsnet = util.get_data_network(A, params)
+    dsn, qsmf = util.get_data_mf(A, params)
+    ds += dsn
+    return ds, qsnet
 
 def list_over_var(params_list, key1, key2, vs):
     ret_list = []
@@ -241,40 +267,37 @@ def list_over_mag2(params_list, mag2s):
 def list_over_mag1(params_list, mag1s):
     return list_over_var(params_list, 'w_params', 'mag1', mag1s)
 
-def make_df(params_list, mu_lim=None, run_num=None):
+def make_df(params_list, mu_lim=None, run_num=None, get_net=True):
     ds = []
     if run_num is None:
         for i, params in enumerate(params_list):
             print("Run", i, '/', len(params_list)-1)
-            ds += mu_data(params)
+            ds += mu_data(params, get_net)
     elif run_num < len(params_list):
         print("Run", run_num, '/', len(params_list)-1)
-        ds += mu_data(params_list[run_num])
+        ds += mu_data(params_list[run_num], get_net)
     df = pd.DataFrame(ds)
     if 'mu' in df.columns and mu_lim is not None:
         df = df[df['mu']<=mu_lim]
     return df
 
-
 def format_df(df: pd.DataFrame, inplace=False) -> pd.DataFrame | None:
     """Format dataframe for plotting."""
     replace_dict = {'tau1': r'$\tau_1$', 'tau2': r'$\tau_2$', 'mag1': r'$m_1$',
                     'mag2': r'$m_2$', 'peak diff': r'$d_{\mu}$', 'mu':
-                    r'$\mu$', 'peak time': r'$t_{\mu}$', 'T_xi': r'$T_{\xi}$',}
+                    r'$\mu$', 'peak time': r'$t_{\mu}$', 'T_xi': r'$T_{\xi}$',
+                    'mag': r'$p_{\mu}$'}
     return df.rename(columns=replace_dict, inplace=inplace)
 
 # Fig 6B, 6C
 def Txi_plots(params, run_num=None):
     params = copy.deepcopy(params)
     params_dsided_list = list_over_tau2([params], [.8, 1.2])
-    # params_dsided_list = list_over_tau2([params], [.8])
-    params_dsided_list = list_over_mag1(params_dsided_list, [-.5, 2])
-    # params_dsided_list = list_over_mag1(params_dsided_list, [-2])
+    params_dsided_list = list_over_mag1(params_dsided_list, [2, -.5])
     params_onesided = copy.deepcopy(params)
     params_onesided['w_params'].update({'mag1': 0})
     temp = params_dsided_list + [params_onesided]
     params_list = list_over_T_xi(temp, [.5, 1, 2, 3])
-    # params_list = list_over_T_xi(temp, [.5])
     df = make_df(params_list, 10, run_num)
     if len(df) > 0:
         hue = make_tau_mag_combs(df)
@@ -317,7 +340,6 @@ def params_combos_plots(params, run_num):
         d['w_params']['tau2'] = p['tau2']
         params_list.append(d)
     df = make_df(params_list, 10, run_num)
-    # dfc = df.drop(columns = [str(k) for k in range(-6,9)])
     if len(df)> 0:
         format_df(df, inplace=True)
         fig, ax = plt.subplots(figsize=figsize2)
@@ -376,16 +398,15 @@ def format_file_str(fstr):
     return fstr
 
 # Fig 7
-def fast_and_slow_plots(base_params, run_num):
-    params = copy.deepcopy(base_params)
+def fast_and_slow_plots(params, run_num):
+    params = copy.deepcopy(params)
     sim_params = params['sim_params']
     w_params = params['w_params']
+    tau1 = w_params['tau1']
+    mag1 = w_params['mag1']
+    mag2 = w_params['mag2']
 
     if run_num is None or run_num == 0:
-        tau1 = 0.25
-        mag1 = 2
-        mag2 = 2
-        w_params.update(dict(tau1=tau1, mag1=mag1, mag2=mag2))
         fname_root = f'_changing_Txi_tau1_{tau1}_mag1_{mag1}_mag2_{mag2}'
         fname_root = format_file_str(fname_root)
         
@@ -393,8 +414,8 @@ def fast_and_slow_plots(base_params, run_num):
         tt = np.linspace(0, sim_params['T'], sim_params['t_steps'])
 
         fig, ax = plt.subplots(figsize=figsize2)
-        putil.make_overlap_plot(qs[:300], tt[:300], peakyd=None, peakyu=None, ax=ax)
-        peaks, maxs, peak_tidx = util.get_peaks(qs[:300], tt[:300])
+        putil.make_overlap_plot(qs[:900], tt[:900], peakyd=None, peakyu=None, ax=ax)
+        peaks, maxs, peak_tidx = util.get_peaks(qs[:900], tt[:900])
         peaks = np.array(peaks)
         maxs = np.array(maxs)
         temp = np.where(peaks>=tt[-1])[0]
@@ -429,7 +450,7 @@ def fast_and_slow_plots(base_params, run_num):
         peak_diff_str = r'$d_{\mu}$'
         fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=mus, y=r'$t_{\mu}$',
-                         hue=None, hue_order=None, style=None,
+                         hue=None, hue_order=None, style='type',
                          style_order=None)
         ymin, ymax = ax.get_ylim()
         ax.vlines([20, 30], ymin=ymin, ymax=ymax, colors='k',
@@ -438,7 +459,7 @@ def fast_and_slow_plots(base_params, run_num):
 
         fig, ax = plt.subplots(figsize=figsize2)
         g = sns.lineplot(data=df, ax=ax, x=mus, y=r'$d_{\mu}$',
-                         hue=None, hue_order=None, style=None,
+                         hue=None, hue_order=None, style='type',
                          style_order=None)
         ymin, ymax = ax.get_ylim()
 
@@ -447,20 +468,20 @@ def fast_and_slow_plots(base_params, run_num):
         idx = (3<=dfavg[mus])&(dfavg[mus]<18)
         dfavg['diff_avgs'][idx] = dfavg[idx][peak_diff_str].mean()
         sns.lineplot(ax=ax, data=dfavg, x=mus, y='diff_avgs',
-                     linestyle='dotted', color='k'
+                     linestyle='dotted', color='k',
                     )
         ymin, ymax = ax.get_ylim()
         dfavg['diff_avgs'] = np.nan
         idx = (20<=dfavg[mus])&(dfavg[mus]<30)
         dfavg['diff_avgs'][idx] = dfavg[idx][peak_diff_str].mean()
         sns.lineplot(ax=ax, data=dfavg, x=mus, y='diff_avgs',
-                     linestyle='dotted', color='k'
+                     linestyle='dotted', color='k',
                     )
         dfavg['diff_avgs'] = np.nan
         idx = 50<=dfavg[mus]
         dfavg['diff_avgs'][idx] = dfavg[idx][peak_diff_str].mean()
         sns.lineplot(ax=ax, data=dfavg, x=mus, y='diff_avgs',
-                     linestyle='dotted', color='k'
+                     linestyle='dotted', color='k',
                     )
         ymin, ymax = ax.get_ylim()
         ax.vlines([20, 30], ymin=ymin, ymax=ymax, colors='k',
@@ -481,3 +502,191 @@ def fast_and_slow_plots(base_params, run_num):
         fnameleg = (figdir/'legend'/figname).with_suffix(ext)
         figlegend.savefig(fnameleg, bbox_inches='tight', transparent=True,
                           pad_inches=.01)
+
+def limiting_cases(base_params, T_xis, Ts, Pthr, Ns=None, run_num=1,
+                    fignames=None, units=None):
+    if fignames is None:
+        fignames = ['mu_plot', 'tmu_plot', 'pmu_plot', 'inset', 'overlaps',
+                    'overlaps_lin']
+        fignames = ['kernel_' + f for f in fignames]
+    params = copy.deepcopy(base_params)
+    params_list = list_over_T_xi([params], T_xis)
+    for k, paramd in enumerate(params_list):
+        paramd['sim_params']['T'] = Ts[k]
+        if Ns is not None:
+            paramd['inp_params']['N'] = Ns[k]
+    df = make_df(params_list, None, run_num, get_net=True)
+    df = df.drop(columns=[k for k in df.columns if k.lstrip('-').isdigit()])
+    df = df.drop(columns=['wtype', 'a', 'b', 'offset'])
+    hue = r"$T_{\xi}$"
+    tmu = r'$t_{\mu}$'
+    dmu = r'$d_{\mu}$'
+    mu = r'$\mu$'
+    dfneti = df[df['type']=='network'].index
+    dfmfi = df[df['type']=='mf'].index
+    dflini = df[df['type']=='linear'].index
+    format_df(df, inplace=True)
+    style = 'type'
+    baselinestr = r'$d_{\mu}$'
+    integ_norm_str = r'$D$'
+
+    if units is not None:
+        df[hue] = df[hue]*1000
+        df[hue] = df[hue].astype(int)
+        df[tmu] = df[tmu]*1000
+        df[dmu] = df[dmu]*1000
+        hue = r'$T_{\xi}$ (ms)'
+        tmu = r'$t_{\mu}$ (ms)'
+        dmu = r'$d_{\mu}$ (ms)'
+        df.rename(columns={r'$T_{\xi}$': hue, r'$d_{\mu}$': dmu,
+                            r'$t_{\mu}$': tmu}, inplace=True)
+
+        baselinestr = r'$d_{\mu}$ (ms)'
+        integ_norm_str = r'$D$ (ms)'
+
+    stylevals = df[style].unique()
+    huevals = df[hue].unique()
+
+    if len(df) == 0:
+        return None
+
+    df[hue] = df[hue].astype('category')
+
+    dfc = df.copy()
+    df.drop(df[(df[mu]>Pthr)].index, inplace=True)
+    huevals = df[hue].unique()
+    for hueval in huevals:
+        dfhue_i = df[df[hue]==hueval].index
+        ind = dfhue_i.intersection(dfneti)
+        net_times = df.loc[ind][tmu]
+        st_time = net_times.min()
+        end_time = net_times.max()
+        df_st_i = df[df[tmu]<st_time].index
+        df_end_i = df[df[tmu]>end_time].index
+        for stype in ['approx', 'linear', 'mf']:
+            dft_i = df[df['type']==stype].index
+            ind = dft_i.intersection(dfhue_i).intersection(df_st_i)
+            df.drop(ind, inplace=True)
+            ind = dft_i.intersection(dfhue_i).intersection(df_end_i)
+            df.drop(ind, inplace=True)
+    Txi_vals = df[hue].unique().to_numpy()
+    Txi_vals = np.sort(Txi_vals)[::-1]
+
+    # Fig S3e
+    fig, ax = plt.subplots(figsize=figsize)
+    g = sns.lineplot(data=df, ax=ax, x=mu, y=dmu,
+                     hue=hue, style='type',
+                     style_order=['network', 'mf', 'linear', 'approx'],
+                     hue_order=Txi_vals,
+                     alpha=0.7)
+    ax.set_ylim([-.08, None])
+    putil.savefig(ax, fignames[0], ncols=1)
+
+    # Fig S3f
+    fig, ax = plt.subplots(figsize=figsize)
+    g = sns.lineplot(data=df, ax=ax, x=tmu, y=dmu,
+                     hue=hue, style='type',
+                     style_order=['network', 'mf', 'linear', 'approx'],
+                     hue_order=Txi_vals,
+                     alpha=0.7)
+    ax.set_ylim([-.08, None])
+    putil.savefig(ax, fignames[1], ncols=1)
+
+    # Fig S3c/S3d
+    fig, ax = plt.subplots(figsize=figsize)
+    g = sns.lineplot(data=df, ax=ax, x=mu, y=r'$p_{\mu}$',
+                     hue=hue, style='type',
+                     style_order=['network', 'mf', 'linear'],
+                     hue_order=Txi_vals,
+                     alpha=0.7)
+    ax.set_ylim([-.08, None])
+    putil.savefig(ax, fignames[2], ncols=1)
+
+    l_integ = []
+    for huev in huevals:
+        # for stylev in ['linear', 'network', 'mf']:
+        for stylev in ['mf']:
+            baseline = df[(df[hue]==huev)&(df[style]=='approx')][dmu].iloc[0]
+            dfb = df[(df[hue]==huev)&(df[style]==stylev)]
+            integral = ((dfb[dmu]-baseline)*dfb[dmu]).sum()
+            l_integ.append({hue: huev, style: stylev,
+                            'integral': np.abs(integral),
+                            baselinestr: baseline})
+            l_integ.append({hue: huev, style: 'unity',
+                            'integral': baseline,
+                            baselinestr: baseline})
+    df_int = pd.DataFrame(l_integ)
+    # integ_norm_str = 'Normalized deviation'
+    df_int[integ_norm_str] = df_int['integral'] / df_int[baselinestr]
+    # integ_y = 'integral'
+    integ_y = integ_norm_str
+
+    fig, ax = plt.subplots(figsize=(1.7*.45, 1*.45))
+    g = sns.lineplot(data=df_int, ax=ax, x=baselinestr, y=integ_y,
+                     style='type',
+                     # style_order=['mf', 'unity'],
+                     style_order=['mf'],
+                     alpha=0.7)
+    ax.set_ylim([-.08, None])
+    putil.savefig(ax, fignames[3], ncols=1)
+
+    plotdir_overlaps = Path(f'plots/{figname_base}_overlaps')
+    plotdir_overlaps.mkdir(exist_ok=True)
+    sim_params = params['sim_params']
+    tt = np.linspace(0, sim_params['T'], sim_params['t_steps']+1)
+    k1 = (len(params_list)//4) + 1
+    k2 = min(len(params_list), 3)
+    fig, axs = plt.subplots(k1, k2, figsize=(9,6))
+    figlin, axslin = plt.subplots(k1, k2, figsize=(9,6))
+    if k1 == 1 and k2 == 1:
+        axs = [axs]
+        axslin = [axslin]
+    else:
+        axs = axs.flatten()
+        axslin = axslin.flatten()
+    for k, param in enumerate(params_list):
+        qsd = qu_data(param, get_net=True)
+        ax = axs[k]
+        overlaps = qsd['network'][:, 1:]
+        ymax = np.max(overlaps)*1.3
+        peakyu = ymax * .95
+        peakyd = ymax * .9
+        ax.set_ylabel(r'$q_{\mu}(t)$')
+        ax.set_xlabel(r'$t$')
+        putil.make_overlap_plot(overlaps, tt, peakyd, peakyu, ax)
+        ax.set_ylim([None, ymax])
+        ax.set_title(param['inp_params']['T_xi'])
+        # putil.savefig(ax, f'{figname_base}_net_3_{k}')
+
+        fign, axn = plt.subplots(figsize=figsize)
+        if units is not None:
+            ttn = tt*1000
+        else:
+            ttn = tt*1000
+        putil.make_overlap_plot(overlaps, ttn, peakyd, peakyu, axn)
+        axn.set_ylim([None, ymax])
+        if units is not None:
+            axn.set_xlabel(r'$t$ (ms)')
+        else:
+            axn.set_xlabel(r'$t$')
+        axn.set_ylabel(r'$q_{\mu}(t)$')
+        axn.set_title(param['inp_params']['T_xi'])
+        # putil.savefig(axn, f'{figname_base}_overlaps/net_{k}',
+                      # separate_legend=None)
+
+        ax = axslin[k]
+        overlaps = qsd['linear']
+        ymax = np.max(overlaps)*1.3
+        peakyu = ymax * .95
+        peakyd = ymax * .9
+        ax.set_ylabel(r'$q_{\mu}(t)$')
+        ax.set_xlabel(r'$t$')
+        putil.make_overlap_plot(overlaps, tt, peakyd, peakyu, ax)
+        ax.set_ylim([None, ymax])
+        ax.set_title(param['inp_params']['T_xi'])
+        # putil.savefig(ax, f'{figname_base}_lin_3_{k}')
+
+    fig.tight_layout()
+    putil.savefig(fig, fignames[4], separate_legend=None)
+    putil.savefig(figlin, fignames[5], separate_legend=None)
+            
